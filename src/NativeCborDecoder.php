@@ -3,7 +3,10 @@ declare(strict_types=1);
 
 namespace Matula\BlueskyCbor;
 
-class NativeCborDecoder
+use Matula\BlueskyCbor\Contracts\CborDecoderInterface;
+use Matula\BlueskyCbor\Exceptions\CborDecodingException;
+
+class NativeCborDecoder implements CborDecoderInterface
 {
     private int $position = 0;
     private array $bytes;
@@ -91,7 +94,7 @@ class NativeCborDecoder
             25 => 2,
             26 => 4,
             27 => 8,
-            default => throw new \Exception("Invalid additional info for unsigned: $additionalInfo")
+            default => throw new CborDecodingException("Invalid additional info for unsigned: $additionalInfo")
         };
 
         $value = 0;
@@ -172,7 +175,7 @@ class NativeCborDecoder
             5 => $this->decodeMap($additionalInfo),
             6 => $this->decodeTag($additionalInfo),
             7 => $this->decodeSpecial($additionalInfo),
-            default => throw new \Exception("Unknown major type: $majorType")
+            default => throw new CborDecodingException("Unknown major type: $majorType")
         };
     }
 
@@ -197,7 +200,7 @@ class NativeCborDecoder
             21 => true,
             22 => null,
             23 => 'undefined',
-            default => throw new \Exception("Unsupported special value: $additionalInfo")
+            default => throw new CborDecodingException("Unsupported special value: $additionalInfo")
         };
     }
 }
