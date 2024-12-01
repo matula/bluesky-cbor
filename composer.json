@@ -1,0 +1,30 @@
+{
+    "name": "matula/bluesky-cbor",
+    "description": "A CBOR decoder for Bluesky's AT Protocol Firehose",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Matula\\BlueskyCbor\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Matula\\BlueskyCbor\\Tests\\": "tests/"
+        }
+    },
+    "require": {
+        "php": "^8.2"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.0",
+        "vimeo/psalm": "^5.26",
+        "phpstan/phpstan": "^1.0",
+        "friendsofphp/php-cs-fixer": "^3.0"
+    },
+    "scripts": {
+        "test": "phpunit",
+        "analyze": "psalm && phpstan analyse",
+        "cs-fix": "php-cs-fixer fix"
+    }
+}
