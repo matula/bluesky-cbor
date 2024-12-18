@@ -6,6 +6,7 @@ class CarBlockReassembler extends CarV2Decoder
 {
     protected function decodeNextComplete()
     {
+        // Defaults
         $currentBlock = [];
         $currentMeta = null;
 
