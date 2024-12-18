@@ -9,8 +9,8 @@ use Matula\BlueskyCbor\Exceptions\CborDecodingException;
 class NativeCborDecoder implements CborDecoderInterface
 {
     private int $position = 0;
-    private array $bytes;
-    private bool $debug = false;
+    protected array $bytes;
+    protected bool $debug = false;
 
     public function decode(string $data, bool $debug = false): array
     {
@@ -193,7 +193,7 @@ class NativeCborDecoder implements CborDecoderInterface
         return $value;
     }
 
-    private function decodeSpecial(int $additionalInfo): mixed
+    protected function decodeSpecial(int $additionalInfo): mixed
     {
         return match($additionalInfo) {
             20 => false,
