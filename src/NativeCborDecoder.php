@@ -83,7 +83,7 @@ class NativeCborDecoder implements CborDecoderInterface
         return $result;
     }
 
-    private function decodeUnsigned(int $additionalInfo): int
+    protected function decodeUnsigned(int $additionalInfo): int
     {
         if ($additionalInfo <= 23) {
             return $additionalInfo;
@@ -149,7 +149,7 @@ class NativeCborDecoder implements CborDecoderInterface
         return $map;
     }
 
-    private function decodeNext(): mixed
+    protected function decodeNext(): mixed
     {
         $byte = $this->bytes[$this->position];
         $majorType = $byte >> 5;
