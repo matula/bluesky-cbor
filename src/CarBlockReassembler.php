@@ -4,106 +4,38 @@ namespace Matula\BlueskyCbor;
 
 class CarBlockReassembler extends CarV2Decoder
 {
-    protected function decodeNextComplete()
+    public function decode(string $data, bool $debug = false): array
     {
-        // Defaults
-        $currentBlock = [];
-        $currentMeta = null;
-
-        while ($this->position < count($this->bytes)) {
-            $startPos = $this->position;
-
-            try {
-                $byte = $this->bytes[$this->position];
-                $majorType = $byte >> 5;
-                $additionalInfo = $byte & 0x1f;
-
-                $this->position++;
-                $value = $this->decodeNext();
-
-                // If we see a CID, start a new block
-                if (is_array($value) && isset($value['cid'])) {
-                    if (!empty($currentBlock)) {
-                        yield $this->finalizeBlock($currentBlock, $currentMeta);
-                    }
-                    $currentMeta = $value['cid'];
-                    $currentBlock = [];
-                    continue;
-                }
-
-                // Handle text fragments that might be part of a record
-                if (is_string($value) && str_starts_with($value, 'app.bsky.')) {
-                    $currentBlock['type'] = $value;
-                    continue;
-                }
-
-                // Handle record data
-                if (is_array($value) && isset($value['text'])) {
-                    $currentBlock['record'] = $value;
-                    continue;
-                }
-
-                // Store other values that might be part of the current block
-                $currentBlock[] = $value;
-
-            } catch (\Exception $e) {
-                if ($this->debug) {
-                    dump("Error at position $startPos: " . $e->getMessage());
-                }
-                $this->position++;
-            }
-        }
-
-        // Don't forget the last block
-        if (!empty($currentBlock)) {
-            yield $this->finalizeBlock($currentBlock, $currentMeta);
-        }
+        return parent::decode($data, $debug);
     }
 
-    protected function finalizeBlock(array $block, ?string $cid): array
+    public function decodeCarBlocks(string $data, bool $debug = false): array
     {
-        // Try to identify the block type
-        if (isset($block['type']) && str_starts_with($block['type'], 'app.bsky.')) {
-            return [
-                'cid' => $cid,
-                'type' => $block['type'],
-                'record' => $block['record'] ?? null,
-                'raw' => $block
-            ];
+        $this->debug = $debug;
+
+        // First decode using parent method
+        $rawBlocks = parent::decode($data, $debug);
+
+        if ($this->debug) {
+            dump("Raw blocks:", $rawBlocks);
         }
 
-        // Handle root blocks differently
-        if (isset($block['roots'])) {
-            return [
-                'type' => 'car_root',
-                'version' => $block['version'] ?? 1,
-                'roots' => $block['roots']
-            ];
-        }
-
-        // Default structure for unknown blocks
-        return [
-            'cid' => $cid,
-            'data' => $block
-        ];
-    }
-
-    public function reassembleBlocks(string $data): array
-    {
-        $blocks = parent::decode($data);
         $reassembled = [];
 
-        foreach ($blocks as $key => $value) {
-            // Handle root block
-            if ($key === 0 && isset($value['roots'])) {
-                $reassembled['root'] = $value;
+        foreach ($rawBlocks as $key => $value) {
+            // Skip numeric keys that aren't actually blocks
+            if (is_numeric($key) && !isset($value['cid'])) {
                 continue;
             }
 
             // Handle CID blocks
-            if (is_string($key) && strlen($key) === 64) { // CID length
-                $reassembled['blocks'][$key] = $this->reassembleBlock($value);
+            if (is_string($key) && strlen($key) > 32) { // CIDs are typically long hex strings
+                $reassembled[$key] = $this->reassembleBlock($value);
             }
+        }
+
+        if ($this->debug) {
+            dump("Reassembled blocks:", $reassembled);
         }
 
         return $reassembled;
@@ -115,7 +47,7 @@ class CarBlockReassembler extends CarV2Decoder
             'cid' => $fragmentedBlock['cid'] ?? null,
         ];
 
-        // Try to identify the record type
+        // Extract record type if present
         foreach ($fragmentedBlock as $key => $value) {
             if (is_string($value) && str_starts_with($value, 'app.bsky.')) {
                 $reassembled['type'] = $value;
@@ -123,22 +55,18 @@ class CarBlockReassembler extends CarV2Decoder
             }
         }
 
-        // Collect record data
+        // Collect all values
         $record = [];
         foreach ($fragmentedBlock as $key => $value) {
+            // Skip some internal keys
+            if ($key === 'cid' || $key === 'type') {
+                continue;
+            }
+
             if (str_starts_with($key, 'value_at_')) {
-                // Try to decode the binary data if possible
-                if (is_string($value) && strlen($value) > 0) {
-                    try {
-                        $decoded = @json_decode($value, true);
-                        if ($decoded) {
-                            $record[$key] = $decoded;
-                        } else {
-                            $record[$key] = bin2hex($value);
-                        }
-                    } catch (\Exception $e) {
-                        $record[$key] = bin2hex($value);
-                    }
+                if (is_string($value) && !mb_check_encoding($value, 'ASCII')) {
+                    // It's binary data, keep it as hex
+                    $record[$key] = bin2hex($value);
                 } else {
                     $record[$key] = $value;
                 }
